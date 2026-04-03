@@ -51,7 +51,9 @@ support for IDA Pro, Binary Ninja and Ghidra. The [disassemblers page](docs/disa
 ## Documentation
 
 A subset of the existing [manual](https://www.zynamics.com/bindiff/manual) is
-available in the [`docs/` directory](docs/README.md).
+available in the [`docs/` directory](docs/README.md). For IDA Pro 9.3-specific
+build notes, see [`IDA93_SETUP.md`](IDA93_SETUP.md). For the current status of
+GitHub release packaging, see [`docs/releases.md`](docs/releases.md).
 
 ## Codemap
 
@@ -96,7 +98,8 @@ The following build dependencies are required:
     *   Binary Ninja SDK
 
 The following build dependencies are optional:
-*   IDA Pro only: IDA SDK 8.2 or higher (unpack into `deps/idasdk`)
+*   IDA Pro only: IDA SDK 8.2 or higher. For IDA Pro 9.2/9.3, use the
+    extracted IDA SDK 9.x, not just the IDA installation directory.
 
 The general build steps are the same on Windows, Linux and macOS. The following
 shows the commands for Linux.
@@ -106,7 +109,7 @@ Download dependencies that won't be downloaded automatically:
 ```bash
 mkdir -p build/out
 git clone https://github.com/google/binexport build/binexport
-unzip -q <path/to/idasdk_pro80.zip> -d build/idasdk
+unzip -q <path/to/idasdk_pro93.zip> -d build/idasdk
 ```
 
 Next, configure the build directory and generate build files:
@@ -118,6 +121,41 @@ cmake -S . -B build/out -G Ninja \
   -DBINDIFF_BINEXPORT_DIR=build/binexport \
   "-DIdaSdk_ROOT_DIR=${PWD}build/idasdk"
 ```
+
+On Windows with IDA 9.3, you can use the helper script:
+
+```bat
+build_ida93.bat C:\idasdk93 [path\to\binexport]
+```
+
+Important notes for IDA 9.3:
+
+*   The default SDK finder in this tree understands the IDA SDK 9.x library
+    layout (`lib/x64_win_vc_64` on Windows).
+*   IDA 9.2+ switched IDAPython from PyQt5/Qt5 to PySide6/Qt6. BinDiff's IDA
+    plugin is native C++, but any companion IDAPython snippets in your
+    BinExport checkout should be reviewed against Hex-Rays' migration guide.
+*   `C:\Program Files\IDA Professional 9.0` may contain an updated IDA 9.3
+    installation, but it is still not a substitute for the standalone SDK
+    because it does not ship the full headers/import libraries required to
+    compile plugins.
+
+### IDA 9.3 Notes
+
+The changes in this tree for IDA Pro 9.3 are intended to make the project
+buildable against the IDA SDK 9.x layout and usable with IDA's Qt 6 based UI.
+
+In particular:
+
+*   CMake now understands the IDA SDK 9.x directory layout on Windows.
+*   The plugin entrypoint avoids the older multi-button `ask_form()` dialog,
+    which proved unstable in IDA 9.3 / Qt 6 during plugin activation. The
+    advanced BinDiff actions remain available through the regular
+    `File` / `View` / `BinDiff` menus.
+*   No local installation artifacts are part of the repository changes. The
+    repository should only contain source, CMake logic, helper scripts and
+    documentation. Do not commit `build/`, crash dumps, generated binaries, or
+    machine-specific paths under `Program Files` / `AppData`.
 
 Finally, invoke the actual build. Binaries will be placed in
 `build/out/bindiff-prefix`:

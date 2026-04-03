@@ -33,7 +33,12 @@ project(bindiff VERSION 8)
 # BinDiff settings
 set(BINDIFF_BINARY_DIR "${PROJECT_BINARY_DIR}" CACHE INTERNAL "" FORCE)
 set(BINDIFF_SOURCE_DIR "${PROJECT_SOURCE_DIR}" CACHE INTERNAL "" FORCE)
-set(BINDIFF_BINEXPORT_DIR "${PROJECT_SOURCE_DIR}/../binexport" CACHE
+if(EXISTS "${PROJECT_SOURCE_DIR}/build/binexport/CMakeLists.txt")
+  set(_bindiff_default_binexport_dir "${PROJECT_SOURCE_DIR}/build/binexport")
+else()
+  set(_bindiff_default_binexport_dir "${PROJECT_SOURCE_DIR}/../binexport")
+endif()
+set(BINDIFF_BINEXPORT_DIR "${_bindiff_default_binexport_dir}" CACHE
     PATH "Path to a BinExport source tree")
 
 # Import targets shared with BinExport
@@ -48,7 +53,14 @@ list(APPEND CMAKE_MODULE_PATH "${BINDIFF_SOURCE_DIR}/cmake"
 # BinDiff CMake modules, order matters
 include(CompileOptions)
 include(BinDiffOptions)
+include(BinDiffCompat)
 include(BinDiffDeps)
+
+if(MSVC)
+  # Avoid sporadic file locking failures in protobuf/libprotoc when MSBuild and
+  # cl.exe both try to parallelize the same project on Windows.
+  add_compile_options(/FS /MP1)
+endif()
 
 set(bindiff_BINEXPORT_RELEASE 12)
 

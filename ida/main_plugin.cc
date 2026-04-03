@@ -1330,76 +1330,6 @@ void Plugin::Terminate() {
 }
 
 bool Plugin::Run(size_t /* argument */) {
-  static const std::string kDialogBase = absl::StrCat(
-      "STARTITEM 0\n"
-      "BUTTON YES Close\n"  // This is actually the OK button
-      "BUTTON CANCEL NONE\n"
-      "HELP\n"
-      "'Diff Database...' diff the currently open IDB against another one "
-      "chosen via a file chooser dialog. Please note that the secondary IDB "
-      "file must be readable for the BinDiff plugin, i.e. it must not be "
-      "opened in another instance of IDA.\n"
-      "\n"
-      "'Diff Database Filtered...' diff specific address ranges of the "
-      "selected databases. You must manually specify a section of the primary "
-      "IDB to compare against a section of the secondary IDB. This is useful "
-      "for comparing only the non library parts of two executables.\n"
-      "\n"
-      "'Load Results...' load a previously saved diff result. The primary IDB "
-      "used in that diff must already be open in IDA.\n"
-      "\n",
-      kBinDiffName, " ", kBinDiffDetailedVersion, "\n", kBinDiffCopyright, "\n",
-      "ENDHELP\n", kBinDiffName, " ", kBinDiffDetailedVersion, "\n",
-      "\n"
-      "<~D~iff Database...:B:1:30::>\n"
-      "<D~i~ff Database Filtered...:B:1:30::>\n\n"
-      "<L~o~ad Results...:B:1:30::>\n\n");
-
-  static const std::string kDialogResultsAvailable = absl::StrCat(
-      "STARTITEM 0\n"
-      "BUTTON YES Close\n"  // This is actually the OK button
-      "BUTTON CANCEL NONE\n"
-      "HELP\n"
-      "'Diff Database...' diff the currently open IDB against another one "
-      "chosen via a file chooser dialog. Please note that the secondary IDB "
-      "file must be readable for the BinDiff plugin, i.e. it must not be "
-      "opened in another instance of IDA.\n"
-      "\n"
-      "'Diff Database Filtered...' diff specific address ranges of the "
-      "selected databases. You must manually specify a section of the primary "
-      "IDB to compare against a section of the secondary IDB. This is useful "
-      "for comparing only the non library parts of two executables.\n"
-      "\n"
-      "'Diff Database Incrementally' keep manually confirmed matches (blue "
-      "matches with algorithm = 'manual') in the current result and re-match "
-      "all others. Thus allowing a partially automated workflow of "
-      "continuously improving the diff results.\n"
-      "\n"
-      "'Load Results...' load a previously saved diff result. The primary IDB "
-      "used in that diff must already be open in IDA.\n"
-      "\n"
-      "'Save Results...' save the current BinDiff matching to a .BinDiff "
-      "result file.\n"
-      "\n"
-      "'Import Symbols and Comments...' copy function names, symbols and "
-      "comments from the secondary IDB into the primary IDB for all matched "
-      "functions. It is possible to specify a filter so only data for matches "
-      "meeting a certain quality threshold or in a certain address range will "
-      "be ported.\n"
-      "\n",
-      kBinDiffName, " ", kBinDiffDetailedVersion, "\n", kBinDiffCopyright, "\n",
-      "ENDHELP\n", kBinDiffName, " ", kBinDiffDetailedVersion, "\n",
-      "\n"
-      "<~D~iff Database...:B:1:30::>\n"
-      "<D~i~ff Database Filtered...:B:1:30::>\n"
-      "<Diff Database Incrementally:B:1:30::>\n\n"
-      "<L~o~ad Results...:B:1:30::>\n"
-      "<~S~ave Results...:B:1:30::>\n"
-#ifdef _DEBUG
-      "<Save Results ~L~og...:B:1:30::>\n"
-#endif
-      "\n<Im~p~ort Symbols and Comments...:B:1:30::>\n\n");
-
   if (!CheckHaveBinExportWithMessage() || !CheckHaveIdbWithMessage()) {
     return false;
   }
@@ -1418,17 +1348,32 @@ bool Plugin::Run(size_t /* argument */) {
     }
   }
 
+  // IDA 9.3 on Qt 6 has proven fragile when launching this legacy multi-button
+  // ask_form() from the plugin entrypoint. Keep the advanced actions available
+  // through the regular File/View/BinDiff menus and use a simpler selector here.
   if (!results_) {
-    ask_form(kDialogBase.c_str(), ButtonDiffDatabaseCallback,
-             ButtonDiffDatabaseFilteredCallback, ButtonLoadResultsCallback);
+    const int answer =
+        ask_buttons("Diff...", "Filtered...", "Load...", ASKBTN_YES,
+                    "%s %s\n\nChoose an action for the current IDB.",
+                    kBinDiffName, kBinDiffDetailedVersion);
+    if (answer == ASKBTN_YES) {
+      DoDiffDatabase(/*filtered=*/false);
+    } else if (answer == ASKBTN_NO) {
+      DoDiffDatabase(/*filtered=*/true);
+    } else if (answer == ASKBTN_CANCEL) {
+      Plugin::instance()->LoadResults();
+    }
   } else {
-    ask_form(kDialogResultsAvailable.c_str(), ButtonDiffDatabaseCallback,
-             ButtonDiffDatabaseFilteredCallback, ButtonRediffDatabaseCallback,
-             ButtonLoadResultsCallback, ButtonSaveResultsCallback,
-#ifdef _DEBUG
-             ButtonSaveResultsLogCallback,
-#endif
-             ButtonPortCommentsCallback);
+    const int answer = ask_buttons(
+        "Diff...", "Load...", "Cancel", ASKBTN_YES,
+        "%s %s\n\nCurrent results are already loaded.\n"
+        "Advanced actions remain available from File/View/BinDiff menus.",
+        kBinDiffName, kBinDiffDetailedVersion);
+    if (answer == ASKBTN_YES) {
+      DoDiffDatabase(/*filtered=*/false);
+    } else if (answer == ASKBTN_NO) {
+      Plugin::instance()->LoadResults();
+    }
   }
   return true;
 }
