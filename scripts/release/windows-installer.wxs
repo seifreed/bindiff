@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*"
+           UpgradeCode="DFAC8553-6E4B-48B9-8D9D-8CC97D67F726"
+           Name="BinDiff"
+           Language="1033"
+           Version="$(var.Version)"
+           Manufacturer="Google LLC">
+    <Package Id="*"
+             Platform="$(var.Platform)"
+             InstallerVersion="500"
+             InstallScope="perMachine"
+             Compressed="yes"
+             Description="BinDiff Installation package"
+             Comments="This Installer database contains the logic and data required to install BinDiff." />
+    <MajorUpgrade DowngradeErrorMessage="A later version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Condition Message="[ProductName] requires a 64-bit edition of Windows.">
+      VersionNT64
+    </Condition>
+    <Condition Message="You must have Administrative rights on this machine to install [ProductName].">
+      Privileged
+    </Condition>
+
+    <Property Id="ARPPRODUCTICON" Value="Icons_BinDiff.ico" />
+
+    <SetProperty Id="SetupConfigFile"
+                 Value='"[SystemFolder]cmd.exe" /c ""[INSTALLDIR]bin\bindiff_config_setup.exe" --config "[CommonAppDataFolder]BinDiff\bindiff.json" directory="[INSTALLDIR]." ui.java_binary="[INSTALLDIR]jre\bin\javaw.exe"""'
+                 Before="SetupConfigFile"
+                 Sequence="execute" />
+    <CustomAction Id="SetupConfigFile"
+                  BinaryKey="WixCA"
+                  DllEntry="WixQuietExec64"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="check" />
+
+    <SetProperty Id="SetupPerUser"
+                 Value='"[SystemFolder]cmd.exe" /c ""[INSTALLDIR]bin\bindiff_config_setup.exe" --per_user"""'
+                 Before="SetupPerUser"
+                 Sequence="execute" />
+    <CustomAction Id="SetupPerUser"
+                  BinaryKey="WixCA"
+                  DllEntry="WixQuietExec64"
+                  Execute="deferred"
+                  Impersonate="yes"
+                  Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="SetupConfigFile" After="InstallFiles">
+        NOT Installed OR MaintenanceMode = "Modify"
+      </Custom>
+      <Custom Action="SetupPerUser" After="SetupConfigFile">
+        NOT Installed OR MaintenanceMode = "Modify"
+      </Custom>
+    </InstallExecuteSequence>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLDIR" Name="BinDiff" />
+      </Directory>
+      <Directory Id="CommonAppDataFolder" Name="CommonAppData">
+        <Directory Id="CommonAppData_BinDiff" Name="BinDiff">
+          <Component Id="CommonAppData_BindiffConfig"
+                     Guid="4A28A4D1-BA02-4729-B2F6-16D67134B388">
+            <CreateFolder />
+            <File Source="$(var.ProjectDir)SourceDir\CommonAppData\BinDiff\bindiff.json"
+                  KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ProgramMenu_BinDiff" Name="BinDiff">
+          <Component Id="ProgramMenu_BinDiff"
+                     Guid="E76E8E63-DC7B-44F7-9D94-10AEA751B45F">
+            <RemoveFolder Id="ProgramMenu_BinDiff_Remove" On="uninstall" />
+            <RegistryValue Root="HKCU"
+                           Key="Software\[Manufacturer]\[ProductName]"
+                           Type="string"
+                           Value="1"
+                           KeyPath="yes" />
+            <Shortcut Id="ProgramMenu_BinDiff_Shortcut"
+                      Name="BinDiff"
+                      Directory="ProgramMenu_BinDiff"
+                      Target="[INSTALLDIR]bin\bindiff.exe"
+                      Arguments="--ui"
+                      WorkingDirectory="INSTALLDIR"
+                      Icon="Icons_BinDiff.ico" />
+          </Component>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <Feature Id="AppRootFeature"
+             Title="BinDiff"
+             Description="BinDiff executables and support files."
+             Level="1"
+             AllowAdvertise="no"
+             Absent="disallow">
+      <ComponentGroupRef Id="BinDiffAppFiles" />
+      <ComponentRef Id="CommonAppData_BindiffConfig" />
+      <ComponentRef Id="ProgramMenu_BinDiff" />
+    </Feature>
+
+    <Icon Id="Icons_BinDiff.ico"
+          SourceFile="$(var.ProjectDir)SourceDir\Icons\bindiff.ico" />
+    <WixVariable Id="WixUILicenseRtf"
+                 Value="$(var.ProjectDir)SourceDir\ProgramFiles\BinDiff\license.rtf" />
+    <UIRef Id="WixUI_Minimal" />
+  </Product>
+</Wix>

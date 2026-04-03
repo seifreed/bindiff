@@ -134,27 +134,29 @@ absl::Status PerUserSetup(const Config& config) {
                       GetOrCreateIdaProUserPluginsDirectory());
   NA_RETURN_IF_ERROR(CreateDirectories(idapro_app_data_plugin_path));
 
+  const auto link_if_present = [&](absl::string_view basename) -> absl::Status {
+    const std::string source =
+        JoinPath(bindiff_dir, kBinDiffIdaProPluginsPrefix, basename);
+    if (!FileExists(source)) {
+      return absl::OkStatus();
+    }
+    return CreateOrUpdateLinkWithFallback(
+        source, JoinPath(idapro_app_data_plugin_path, basename));
+  };
+
   plugin_basename =
       absl::StrFormat("bindiff%s_ida%s", kBinDiffRelease, kLibrarySuffix);
-  NA_RETURN_IF_ERROR(CreateOrUpdateLinkWithFallback(
-      JoinPath(bindiff_dir, kBinDiffIdaProPluginsPrefix, plugin_basename),
-      JoinPath(idapro_app_data_plugin_path, plugin_basename)));
+  NA_RETURN_IF_ERROR(link_if_present(plugin_basename));
   plugin_basename =
       absl::StrFormat("bindiff%s_ida64%s", kBinDiffRelease, kLibrarySuffix);
-  NA_RETURN_IF_ERROR(CreateOrUpdateLinkWithFallback(
-      JoinPath(bindiff_dir, kBinDiffIdaProPluginsPrefix, plugin_basename),
-      JoinPath(idapro_app_data_plugin_path, plugin_basename)));
+  NA_RETURN_IF_ERROR(link_if_present(plugin_basename));
 
   plugin_basename = absl::StrFormat("binexport%s_ida%s",
                                     kBinDiffBinExportRelease, kLibrarySuffix);
-  NA_RETURN_IF_ERROR(CreateOrUpdateLinkWithFallback(
-      JoinPath(bindiff_dir, kBinDiffIdaProPluginsPrefix, plugin_basename),
-      JoinPath(idapro_app_data_plugin_path, plugin_basename)));
+  NA_RETURN_IF_ERROR(link_if_present(plugin_basename));
   plugin_basename = absl::StrFormat("binexport%s_ida64%s",
                                     kBinDiffBinExportRelease, kLibrarySuffix);
-  NA_RETURN_IF_ERROR(CreateOrUpdateLinkWithFallback(
-      JoinPath(bindiff_dir, kBinDiffIdaProPluginsPrefix, plugin_basename),
-      JoinPath(idapro_app_data_plugin_path, plugin_basename)));
+  NA_RETURN_IF_ERROR(link_if_present(plugin_basename));
 
   return absl::OkStatus();
 }
